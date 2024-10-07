@@ -1,0 +1,5 @@
+"0","google_2015 %>%"
+"0","  ggplot(aes(x = day)) +"
+"0","  geom_line(aes(y = Close)) +"
+"0","  geom_line(aes(y = .sim, color = as.factor(.rep)), data = google_Naive_boot) +"
+"0","  guides(color = ""none"")"

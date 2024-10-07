@@ -1,0 +1,4 @@
+"0","samp10 <- forecast_boot$Close[10]"
+"0","params <- distributional::parameters(samp10) %>% unlist(use.names = FALSE) %>% as_tibble()"
+"0",""
+"0","params %>% ggplot(aes(x = value)) + geom_histogram()"

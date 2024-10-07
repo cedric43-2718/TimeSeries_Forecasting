@@ -1,0 +1,273 @@
+---
+title: "Time Series Decomposition"
+date: "2024-09-20"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    # code_folding: hide
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
+```
+
+# Setup
+
+```{r}
+library(fpp3)
+library(tidymodels)
+library(skimr)
+library(readr)
+
+datPath <- 'D:/Courses/ForecastingBook/Forecasting Principals-Methods/Data/'
+elecCons <- read_csv('D:/Courses/ForecastingBook/Forecasting Principals-Methods/Data/ElecCons.csv')
+```
+
+Recast electricity consumption data as a tsibble
+```{r}
+elecCons %>% glimpse()
+```
+```{r}
+elec_cons <- elecCons %>% 
+  select(dtime, Year, Month, day_of_month, Hour, dayName, weekend, season, tempK, irradiance_toa, cloud_cover, Elec_Cons) %>%
+  filter(!are_duplicated(elecCons, index = dtime, key = Year)) %>%
+  as_tsibble(key = Year, index = dtime)
+
+elec_cons13 <- elec_cons %>% filter(Year == 2013)
+```
+
+# Introduction
+
+Typically we think of time series as composed of three components:
+
+* Trend-Cycle
+* Seasonal
+* Remainder
+
+# Transformations and Adjustments
+
+Transformations can simplify a time series by removing known sources of variation
+
+## Calendar Trasformations
+
+These effects can be removed by transforming the data. Take monthly sales in a retail establishment. Some variation will simply be due to the fact that certain months have more days. Could use average sales per day by month instead of total monthly sales.
+
+## Population Adjustments
+
+For data processes that are impacted by population dynamics it is best to use per-capita adjustments.
+
+```{r}
+global_economy %>%
+  filter(Country == "Australia") %>%
+  autoplot(GDP/Population) +
+  labs(title = "GDP Per Capita")
+```
+## Inflation Adjustments
+
+index_by is similar to group_by and can be used to re index and summaries a tsibble
+
+```{r}
+print_retail <- aus_retail %>%
+  filter(Industry == "Newspaper and book retailing") %>%
+  group_by(Industry) %>%
+  index_by(Year = year(Month)) %>%
+  summarise(Turnover = sum(Turnover))
+  
+```
+```{r}
+aus_economy <- global_economy %>% filter(Code == "AUS")
+```
+The use of pivot_longer to pivot selected columns is a nice little tool fo the box
+
+```{r}
+print_retail %>%
+  left_join(aus_economy, by = "Year") %>%
+  mutate(Adjusted_Turnover = Turnover / CPI * 100) %>%
+  pivot_longer(c(Turnover, Adjusted_Turnover), values_to = "Turnover") %>%
+  mutate(name = factor(name, levels = c("Turnover", "Adjusted_Turnover"))) %>%
+  ggplot(aes(Year, Turnover)) +
+  geom_line() +
+  facet_grid(name ~ ., scales = "free_y")
+  
+```
+## Mathematical Transformations
+
+These transformations are useful if the process is dependent on the absolue magnitude of the series
+The Box-Cox transformation is useful for transforming highly skewed data, while leaving the central values of the data fairly stable.
+
+The block of code automaticaly selects lambda using features and a metric. Features appear to add predefined metrics to a dataset.
+Let's See. Pull extracts a single column by position or name. The feature method below looks up a scalar based on a range of values.
+Pull makes it just a value.
+
+```{r}
+lambda <- aus_production %>%
+  features(Gas, features = guerrero) %>%
+  pull(lambda_guerrero)
+lambda
+```
+```{r}
+aus_production %>%
+  autoplot(box_cox(Gas, lambda)) 
+```
+
+# Time Series Components
+
+It is important to consider if the magnitude of seasonal flux or variation around the trend cycle varies with the magnitude of the series.
+If this is the case a multiplicative transform is a better approach.
+
+## Motivating Example: US Employment
+
+```{r}
+us_retail <- us_employment %>%
+  filter(year(Month) >= 1990, Title == "Retail Trade") %>%
+  select(-Series_ID)
+autoplot(us_retail, Employed)
+```
+Calculate Decomposition. The output of the modeling step is a data stucture called a mable. A model table.
+
+```{r}
+dcmp <- us_retail %>%
+  model(stl = STL(Employed))
+  components(dcmp)
+```
+
+Trend Plot
+
+```{r}
+components(dcmp) %>% 
+  as_tsibble() %>%
+  autoplot(Employed, color = "grey") +
+  geom_line(aes(y = trend), color = "orange")
+```
+Looking at the Components
+
+```{r}
+components(dcmp) %>% autoplot()
+```
+## Seasonally Adjusted Data
+
+The decomposition method also produces a column for seasonal adjustment
+
+```{r}
+components(dcmp) %>% 
+  as_tsibble() %>%
+  autoplot(Employed, color = "grey") +
+  geom_line(aes(y = season_adjust), color = "orange")
+```
+## Moving Averages
+
+Early methods in decomposition focused on creating moving averages to capture the trend-cycle component.
+Key paramaters:
+
+MA order m:
+k = periods relative to t
+m = 2k + 1
+k = m - 1 / 2
+
+## Moving Average Smoothing
+
+We use the slider package to calculate MA in the following code block.
+The package is inspired by purrr map and other time based packages
+
+```{r}
+aus_exports <- global_economy %>%
+  filter(Country == "Australia") %>%
+  mutate(MA5 = slider::slide_dbl(Exports, mean, .before = 2, .after = 2, .complete = TRUE))
+
+aus_exports %>% 
+  autoplot(Exports) +
+  geom_line(aes(y = MA5), color = "orange")
+```
+# Classical Decoposition
+
+Key forms:
+
+* Additive
+* Multiplicative
+
+m is commonly used to refer to the seasonality
+* m-4: quarterly
+* m-12: monthly
+
+The first step in these type of analysis is performing a 2 x m MA to get at the trend component.
+This method has been replaced by more advanced techniques.
+
+# Methods used by Statistical Agencies
+
+## X-11 Method
+
+* trend-cycle available at end points
+* Seasonal component is allowed to vary over time
+* handles know date features
+
+```{r}
+library(seasonal)
+
+x11_decomp <- us_retail %>%
+  model(x11 = X_13ARIMA_SEATS(Employed ~ x11())) %>% 
+  components()
+autoplot(x11_decomp) +
+  labs(title = "X11 Decomposition")
+```
+Seasonal adjustment plot. The code is a good example of how to manually create a legend and colors.
+
+```{r}
+x11_decomp %>%
+  ggplot(aes(x = Month)) +
+  geom_line(aes(y = Employed, colour = "Data")) +
+  geom_line(aes(y = season_adjust, colour = "Seasonally Adjusted")) +
+  geom_line(aes(y = trend, colour = "Trend")) +
+  scale_colour_manual(
+    values = c("gray", "#0072B2", "#D55E00"),
+    breaks = c("Data", "Seasonally Adjusted", "Trend")
+  )
+```
+A Seasonal sub-series plot
+
+```{r}
+x11_decomp %>%
+  gg_subseries(seasonal)
+```
+## STL Decomposition
+
+STL: Seasonal and Trend Decomposition using LOESS
+
+Advantage over X11:
+* capable of handling any seasonality periodicity
+* seasonal component can be non-stationary and controlled by user
+* smoothness of trend can be controlled
+* robust to outliers
+
+```{r}
+us_retail %>%
+  model(
+    STL(
+      Employed ~ trend(window = 7) + season(window = "periodic"),
+      robust = TRUE
+    )
+  ) %>%
+  components() %>%
+  autoplot()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

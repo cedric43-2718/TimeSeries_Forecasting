@@ -1,0 +1,142 @@
+---
+title: "Time Series Graphics"
+date: "2024-09-20"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    # code_folding: hide
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
+```
+
+# Setup
+
+```{r}
+suppressPackageStartupMessages(library(fpp3))
+suppressPackageStartupMessages(library(tidymodels))
+library(skimr)
+library(readr)
+
+datPath <- 'D:/Courses/ForecastingBook/Forecasting Principals-Methods/Data/'
+elecCons <- read_csv('D:/Courses/ForecastingBook/Forecasting Principals-Methods/Data/ElecCons.csv')
+```
+
+# tsible Objects
+
+Basic conversion from tibble to a tsibble. We need to specify a time index
+
+```{r}
+y <- tibble(
+  Month = c("2019 Jan", "2019 Feb", "2019 Mar", "2019 Apr", "2019 May"),
+  Observation = c(20, 30, 40, 50, 60)
+)
+
+z <- y %>%
+  mutate(Month = yearmonth(Month)) %>%
+  as_tsibble(index = Month)
+z
+```
+tsibbles can store multiple time series identified by key columns. The flowing is an example of identifying keys and a time index. This is a 
+realistic basic tsibble conversion.
+
+```{r}
+prison <- readr::read_csv("https://OTexts.com/fpp3/extrafiles/prison_population.csv")
+prison
+```
+
+```{r}
+prison <- prison %>% 
+  mutate(Quarter = yearquarter(Date)) %>%
+  select(-Date) %>%
+  as_tsibble(
+    key = c(State, Gender, Legal, Indigenous),
+    index = Quarter
+  )
+prison
+```
+
+# Basic Time Plots: Autoplot
+
+```{r}
+melsyd_economy <- ansett |>
+  filter(Airports == "MEL-SYD", Class == "Economy") |>
+  mutate(Passengers = Passengers/1000)
+
+autoplot(melsyd_economy, Passengers)
+```
+# Seasonal Plots
+
+```{r}
+PBS |>
+  filter(ATC2 == "A10") |>
+  select(Month, Concession, Type, Cost) |>
+  summarise(TotalC = sum(Cost)) |>
+  mutate(Cost = TotalC / 1e6) -> a10
+glimpse(a10)
+```
+```{r}
+a10 %>%
+  gg_season(Cost, labels = "both")
+```
+## Multiple Seasonal Periods
+
+A time series can have multiple time resolutions within a season. In this case we can use the period argument to the gg_season plot.
+
+```{r}
+vic_elec %>% 
+  gg_season(Demand, period = "day") +
+  theme(legend.position = "none") +
+  labs(title = "Season: Day (365)")
+```
+```{r}
+vic_elec %>% 
+  gg_season(Demand, period = "week") +
+  theme(legend.position = "none") +
+  labs(title = "Season: Week (52)")
+```
+
+```{r}
+vic_elec %>% 
+  gg_season(Demand, period = "year") +
+  labs(title = "Season: Year (3)")
+```
+# Autocorrelation
+
+Autocorrelation coefficients
+
+```{r}
+recent_production <- aus_production |>
+  filter(year(Quarter) >= 2000)
+
+recent_production %>% ACF(Beer, lag_max = 9)
+```
+
+## ACF Plot
+
+This plot shows how correlation changes with each lag. The plot clearly shows a quarterly seasonal pattern.
+
+```{r}
+recent_production |>
+  ACF(Beer) |>
+  autoplot() + labs(title="Australian beer production")
+```
+When data have trend the ACF will be large for small lags and decrease as the la increases
+When data have a seasonal trend the auto-cors will have larger cors for the seasonal lags.
+You can also see both in the following ACF
+
+```{r}
+a10 %>%
+  ACF(Cost, lag_max = 48) %>%
+  autoplot()
+
+```
+
+
+
+
+
+

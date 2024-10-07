@@ -1,0 +1,5 @@
+"0","google_2015 %>%"
+"0","  model(NAIVE(Close)) %>%"
+"0","  forecast(h = 10) %>%"
+"0","  autoplot(google_2015) +"
+"0","  labs(title = ""NAIVE forecast with prediction intervals"")"

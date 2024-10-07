@@ -1,0 +1,4 @@
+"0","google_2015 %>%"
+"0","  model(NAIVE(Close)) %>%"
+"0","  forecast(h = 10) %>%"
+"0","  hilo()"

@@ -1,0 +1,2 @@
+"0","gdppc <- global_economy %>% "
+"0","  mutate(GDP_PC = GDP / Population)"

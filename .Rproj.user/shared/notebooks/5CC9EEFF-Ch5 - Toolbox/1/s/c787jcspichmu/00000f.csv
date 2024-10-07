@@ -1,0 +1,2 @@
+"0","beer_fcast <- beer_fit %>%"
+"0","  forecast(h = 10)"

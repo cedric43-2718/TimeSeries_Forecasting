@@ -1,0 +1,9 @@
+"0","lambda <- aus_production %>%
+  features(Gas, features = guerrero) %>%
+  pull(lambda_guerrero)
+lambda
+"
+"1","[1]"
+"1"," 0.1095171"
+"1","
+"

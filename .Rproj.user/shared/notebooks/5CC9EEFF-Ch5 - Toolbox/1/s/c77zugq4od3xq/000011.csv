@@ -1,0 +1,6 @@
+"0","beer_fc %>% autoplot(train, level = NULL) +"
+"0","  autolayer("
+"0","    filter_index(aus_production, ""2007 Q1"" ~ .),"
+"0","    colour = ""black"""
+"0","  )"
+"0",""

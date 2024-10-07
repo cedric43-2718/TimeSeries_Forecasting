@@ -1,0 +1,5 @@
+"0","transform_ex <- prices %>% "
+"0","  filter(!is.na(eggs)) %>%"
+"0","  model(RW(log(eggs) ~ drift())) %>%"
+"0","  forecast(h = 50)"
+"0","transform_ex"

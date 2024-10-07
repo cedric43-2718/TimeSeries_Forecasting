@@ -1,0 +1,122 @@
+---
+title: "Time Series Decomposition"
+date: "2024-09-20"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    # code_folding: hide
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
+```
+
+# Setup
+
+```{r}
+library(fpp3)
+library(tidymodels)
+library(skimr)
+library(readr)
+
+```
+
+# Introduction
+
+The feasts package provides methods for computing Features and Statistics from Time Series
+
+# Simple Statistics
+
+```{r}
+tourism
+```
+
+```{r}
+tourism %>% features(Trips, list(mean = mean))
+```
+```{r}
+tourism %>% features(Trips, quantile)
+```
+
+# ACF Features
+
+The feat_acf function computes a collection of auto correlation function summaries
+
+```{r}
+tourism %>% features(Trips, feat_acf)
+```
+# STL Features
+
+Two useful features from a decomposition are trend and seasonality strength which are based on the variance of the components
+
+```{r}
+tourism %>% features(Trips, feat_stl)
+```
+
+These features can be used to produce illuminating EDA plos
+
+```{r}
+tourism %>%
+  features(Trips, feat_stl) %>%
+  ggplot(aes(x = trend_strength, y = seasonal_strength_year, color = Purpose)) +
+  geom_point() +
+  facet_wrap(vars(State))
+  
+```
+```{r}
+tourism %>%
+  features(Trips, feat_stl) %>%
+  filter(seasonal_strength_year == max(seasonal_strength_year))
+```
+I'm building this up to verify what the data transformations are doing
+```{r}
+tourism %>%
+  features(Trips, feat_stl) %>%
+  filter(seasonal_strength_year == max(seasonal_strength_year)) %>%
+  left_join(tourism, by = c("Region", "State", "Purpose"), multiple = "all")
+```
+
+```{r}
+tourism %>%
+  features(Trips, feat_stl) %>%
+  filter(seasonal_strength_year == max(seasonal_strength_year)) %>%
+  left_join(tourism, by = c("Region", "State", "Purpose"), multiple = "all") %>%
+  ggplot(aes(x = Quarter, y = Trips)) +
+  geom_line() +
+  facet_grid(vars(State, Region, Purpose))
+```
+
+# Exploring Australian Tourisim Data
+
+Computing all features in the feasts package in one go
+
+```{r}
+tourism_feat <- tourism %>% features(Trips, feature_set(pkgs = "feasts"))
+tourism_feat
+```
+
+Pairwise plot layout of all features involving seasonality
+
+```{r}
+library(glue)
+
+tourism_feat %>%
+  select_at(vars(contains("season"), Purpose)) %>%
+  mutate(
+    seasonal_peak_year = seasonal_peak_year +
+      4*(seasonal_peak_year==0),
+    seasonal_trough_year = seasonal_trough_year +
+      4*(seasonal_trough_year==0),
+    seasonal_peak_year = glue("Q{seasonal_peak_year}"),
+    seasonal_trough_year = glue("Q{seasonal_trough_year}"),
+  ) %>%
+  GGally::ggpairs(mapping = aes(colour = Purpose))
+```
+
+
+
+
+
+

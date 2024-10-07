@@ -1,0 +1,4 @@
+"0","transform_ex %>% "
+"0","  autoplot(prices %>% filter(!is.na(eggs)), level = 80) +"
+"0","  geom_line(aes(y = .median), data = transform_ex, linetype = 2, color = ""blue"")"
+"0",""

@@ -1,0 +1,2 @@
+"0","timeSeries_lm_fit <- gdppc %>% model(timeSeries_lm)"
+"0","timeSeries_lm_fit"

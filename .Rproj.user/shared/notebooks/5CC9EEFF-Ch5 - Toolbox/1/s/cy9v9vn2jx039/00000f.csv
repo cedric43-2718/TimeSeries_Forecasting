@@ -1,0 +1,3 @@
+"0","google_aug <- google_2015 %>% "
+"0","  model(NAIVE(Close)) %>%"
+"0","  augment()"

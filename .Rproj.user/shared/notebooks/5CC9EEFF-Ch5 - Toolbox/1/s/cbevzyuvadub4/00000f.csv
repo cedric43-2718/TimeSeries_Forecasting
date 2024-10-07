@@ -1,0 +1,3 @@
+"0","bricks <- aus_production %>%"
+"0","  filter_index(""1970 Q1"" ~ ""2004 Q4"") %>%"
+"0","  select(Bricks)"

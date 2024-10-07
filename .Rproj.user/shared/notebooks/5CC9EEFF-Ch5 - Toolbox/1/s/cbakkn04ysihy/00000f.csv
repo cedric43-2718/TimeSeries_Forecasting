@@ -1,0 +1,2 @@
+"0","forecast_boot <- fit_google_Naive %>% forecast(h = 30, bootstrap = TRUE)"
+"0","forecast_boot"

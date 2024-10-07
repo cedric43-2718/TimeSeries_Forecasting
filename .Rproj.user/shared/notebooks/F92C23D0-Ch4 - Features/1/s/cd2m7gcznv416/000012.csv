@@ -1,0 +1,5 @@
+"0","tourism %>%"
+"0","  features(Trips, feat_stl) %>%"
+"0","  ggplot(aes(x = trend_strength, y = seasonal_strength_year, color = Purpose)) +"
+"0","  geom_point() +"
+"0","  facet_wrap(vars(State))"

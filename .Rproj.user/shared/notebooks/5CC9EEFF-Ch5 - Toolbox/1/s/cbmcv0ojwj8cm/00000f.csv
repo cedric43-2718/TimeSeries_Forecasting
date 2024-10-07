@@ -1,0 +1,6 @@
+"0","library(fabletools)"
+"0","fit_google_Naive <- google_2015 %>%"
+"0","  model(NAIVE(Close))"
+"0",""
+"0","google_Naive_boot <- fit_google_Naive %>%"
+"0","  fabletools::generate(h = 30, times = 5, bootstrap = TRUE)"

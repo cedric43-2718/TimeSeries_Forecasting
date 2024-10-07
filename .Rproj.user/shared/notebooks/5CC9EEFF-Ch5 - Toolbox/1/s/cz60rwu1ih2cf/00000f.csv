@@ -1,0 +1,7 @@
+"0","# NAIVE forecast of seasonally adjusted data"
+"0",""
+"0","rEmp_dcmp %>%"
+"0","  model(NAIVE(season_adjust)) %>%"
+"0","  forecast() %>%"
+"0","  autoplot(rEmp_dcmp) +"
+"0","  labs(title = ""Naive forecast of Seasonally Adjusted Trend + Noise"")"

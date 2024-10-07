@@ -1,0 +1,92 @@
+---
+title: "CH7 - Time Series Regression"
+date: "2024-09-20"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    # code_folding: hide
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
+```
+
+# Setup
+
+```{r}
+library(fpp3)
+library(tidymodels)
+library(skimr)
+library(readr)
+
+```
+
+# The Linear Model
+
+## Example: US Consumption Expenditure
+
+```{r}
+us_change
+```
+Reminder: This block will pivot the identified series and duplicate the other series 
+```{r}
+us_change %>%
+  pivot_longer(c(Consumption, Income), names_to = "Series")
+```
+
+```{r}
+us_change %>%
+  pivot_longer(c(Consumption, Income), names_to = "Series") %>%
+  autoplot(value)
+```
+Basic lm fit with ggplot
+
+```{r}
+us_change %>%
+  ggplot(aes(x = Income, y = Consumption)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+```
+Fit a basic Linear Model with Time Series Components
+
+```{r}
+us_change %>%
+  model(TSLM(Consumption ~ Income)) %>% report()
+```
+
+# Multiple Linear Regression
+
+## Example: US Consumption Expenditure Additional Predictors
+
+```{r}
+us_change %>%
+  select(-c(Consumption, Income)) %>%
+  pivot_longer(-Quarter, names_to = "Series") %>%
+  ggplot(aes(x = Quarter, y = value, color = Series)) +
+  geom_line() +
+  facet_grid(Series ~ ., scales = "free_y") +
+  guides(color = "none")
+```
+```{r}
+us_change %>% 
+  GGally::ggpairs(columns = 2:6)
+```
+# Least Squares Estimation
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

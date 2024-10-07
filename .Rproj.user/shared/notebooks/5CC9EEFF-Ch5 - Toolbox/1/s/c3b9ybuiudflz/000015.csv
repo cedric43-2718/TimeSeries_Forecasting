@@ -1,0 +1,10 @@
+"0","recent_production <- aus_production %>%"
+"0","  filter(year(Quarter) >= 1992)"
+"2","Error in exists(cacheKey, where = .rs.WorkingDataEnv, inherits = FALSE) : 
+  invalid first argument
+"
+"2","Error in assign(cacheKey, frame, .rs.CachedDataEnv) : 
+  attempt to use zero-length variable name
+"
+"0","# remember to use index_by with tsibbles"
+"0","recent_production %>% mutate(Year = year(Quarter)) %>% index_by(Year) %>% summarise(total_y = n()) %>% slice(n()-9:0)"

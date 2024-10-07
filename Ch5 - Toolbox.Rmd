@@ -1,0 +1,455 @@
+---
+title: "CH5 - Forecasters Toolbox"
+date: "2024-09-20"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    # code_folding: hide
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
+```
+
+# Setup
+
+```{r}
+library(fpp3)
+library(tidymodels)
+library(skimr)
+library(readr)
+
+```
+
+# Tidy Forecasting Workflow
+
+## Data Preparation
+
+```{r}
+gdppc <- global_economy %>% 
+  mutate(GDP_PC = GDP / Population)
+```
+
+## EDA
+
+```{r}
+gdppc %>%
+  filter(Country == "Sweden") %>%
+  autoplot(GDP_PC)
+```
+
+## Define a model
+
+The fable package has a number of different modeling method. Here we will use a linear time trend model
+
+```{r}
+timeSeries_lm <- TSLM(GDP_PC ~ trend())
+```
+
+## Train / Fit the model
+
+```{r}
+timeSeries_lm_fit <- gdppc %>% model(timeSeries_lm)
+timeSeries_lm_fit
+```
+```{r}
+timeSeries_lm_fit %>% filter(Country =="Canada") %>% report()
+```
+## Produc Forecast
+
+```{r}
+timeSeries_lm_fit %>% forecast(h = 3)
+```
+
+```{r}
+timeSeries_lm_fit %>% forecast(h = 3) %>%
+  filter(Country == "Canada") %>%
+  autoplot(gdppc)
+```
+
+# Simple Forecasting Methods
+
+First we filter the time series using the filter_index method from the tsibble package
+
+```{r}
+bricks <- aus_production %>%
+  filter_index("1970 Q1" ~ "2004 Q4") %>%
+  select(Bricks)
+```
+
+## Mean Method
+
+Future values are set to the historical average
+
+## Naive Method
+
+Sets all future values to the last historical value
+
+## Seasonal Naive Method
+
+Sets future value to a lagged value of a seasonal series
+
+## Drift method
+
+Similar to the Naive Method, but the forecast is allowed to increase or decrease with the overall trend
+
+## Example Australian Beer Production
+
+```{r}
+train <- aus_production %>%
+  filter_index("1992 Q1" ~ "2006 Q4")
+
+## Fit models
+
+beer_fit <- train %>%
+  model(
+    Mean = MEAN(Beer),
+    Naive = NAIVE(Beer),
+    S_Naive = SNAIVE(Beer)
+  )
+
+## Forecast for 14 quarters
+
+beer_fc <- beer_fit %>% forecast(h = 14)
+
+## Plot forecast against actual
+
+beer_fc %>% autoplot(train, level = NULL)
+beer_fc %>% autoplot(train, level = NULL) +
+  autolayer(
+    filter_index(aus_production, "2007 Q1" ~ .),
+    colour = "black"
+  )
+
+```
+
+## Fitted and Residuals
+
+The fable package works with the broom methods.
+
+```{r}
+augment(beer_fit)
+```
+
+## Residual Diagnostics
+
+1) no correlation between residuals
+2) zero mean residuals
+3) constant variance
+4) Normally distributed
+
+## Example: Predicting Google daily closing price
+
+```{r}
+google_stock <- gafa_stock %>%
+  filter(Symbol == "GOOG", year(Date) >= 2015) %>%
+  mutate(day = row_number()) %>%
+  update_tsibble(index = day, regular = TRUE)
+
+# Filter the year of interest
+google_2015 <- google_stock |> filter(year(Date) == 2015)
+```
+
+```{r}
+google_aug <- google_2015 %>% 
+  model(NAIVE(Close)) %>%
+  augment()
+```
+
+```{r}
+autoplot(google_aug, .innov)
+```
+```{r}
+google_aug %>%
+  ggplot(aes(x = .innov)) +
+  geom_histogram()
+
+google_aug %>% ACF(.innov) %>% autoplot()
+```
+Plots 1 and 3 of the previous three plots demonstrate points 1 and 2 in the introduction. The following code block produces a layout with all of these diagnostic plots.
+
+```{r}
+google_2015 %>% model(NAIVE(Close)) %>% gg_tsresiduals()
+```
+
+## Portmeanteau Tests for AC
+
+Box Pierce
+
+```{r}
+google_aug %>% features(.innov, box_pierce, lag = 10)
+```
+Ljung_Box
+
+```{r}
+google_aug %>% features(.innov, ljung_box, lag = 10)
+```
+Looking at the drift method and autocorelation tests in a simplified modeling flow.
+
+```{r}
+google_fit_drift <- google_2015 %>% model(RW(Close ~ drift()))
+google_fit_drift %>% tidy()
+```
+```{r}
+google_fit_drift %>% augment() %>% features(.innov, ljung_box, lag = 10)
+```
+
+# Distributional Forecasts and Prediction Intervals
+
+* Most time series models produce normally distributed forecasts
+
+## Prediction Intervals
+
+* used to express a probability distribution of where a forecast may land within a given coverage
+
+## One Step Prediction Intervals
+
+When forecasting one step ahead the standard deviation can be estimated using the SD of the residuals.
+
+## Benchmark Methods
+
+The four benchmark methods have simple analytical formulas for h-step prediction standard deviations.
+
+Prediction intervals are easily computed using the fable packages hilo() method
+
+```{r}
+google_2015 %>%
+  model(NAIVE(Close)) %>%
+  forecast(h = 10) %>%
+  hilo()
+```
+
+```{r}
+google_2015 %>%
+  model(NAIVE(Close)) %>%
+  forecast(h = 10) %>%
+  autoplot(google_2015) +
+  labs(title = "NAIVE forecast with prediction intervals")
+```
+## Prediction Intervals from Bootstrapped Residuls
+
+If normally distributed residuals can not be assumed we can use a bootstrap method to estimate the standard deviation by drawing 
+samples from past residuals
+
+We can perform a bootstrap using the generate() function
+
+```{r}
+library(fabletools)
+fit_google_Naive <- google_2015 %>%
+  model(NAIVE(Close))
+
+google_Naive_boot <- fit_google_Naive %>%
+  fabletools::generate(h = 30, times = 5, bootstrap = TRUE)
+```
+
+```{r}
+google_2015 %>%
+  ggplot(aes(x = day)) +
+  geom_line(aes(y = Close)) +
+  geom_line(aes(y = .sim, color = as.factor(.rep)), data = google_Naive_boot) +
+  guides(color = "none")
+```
+
+After generating bootstrap sample mean pathways we can generate prediction interval based off of each pathway generated.
+We can use forecast directly to generate bootstrap samples. We can also control the bootstrap parameters in forecast.
+
+```{r}
+forecast_boot <- fit_google_Naive %>% forecast(h = 30, bootstrap = TRUE)
+forecast_boot
+```
+```{r}
+autoplot(forecast_boot, google_2015)
+```
+```{r}
+str(forecast_boot$Close[10])
+```
+I wanted to unlist one of the model objects. This Stack Ex was helpful
+https://stackoverflow.com/questions/73973322/r-fable-how-to-access-distribution-object-elements
+```{r}
+samp10 <- forecast_boot$Close[10]
+params <- distributional::parameters(samp10) %>% unlist(use.names = FALSE) %>% as_tibble()
+
+params %>% ggplot(aes(x = value)) + geom_histogram()
+
+# Code used for parameters
+
+parameters.distribution <- function(x, ...) {
+  x <- lapply(vec_data(x), parameters)
+  x <- lapply(x, function(z) data_frame(!!!z, .name_repair = "minimal"))
+  vec_rbind(!!!x)
+}
+
+
+```
+
+## Forecasting Using Transformations
+
+When back transforming a forecast typically the transformed forecast point estimate is a median. This can be adjusted by applying a transformation that accounts for this distributional bias. This is called a Bias Adjusted transformation.
+
+Example: Difference between median and mean of a transformed forecast
+Note: Fable will automatically back transform  and bias correct reported means
+
+```{r}
+transform_ex <- prices %>% 
+  filter(!is.na(eggs)) %>%
+  model(RW(log(eggs) ~ drift())) %>%
+  forecast(h = 50)
+transform_ex
+```
+I plot this in three steps to show how autoplot detects input and changes the plot type even if not directly used in the aesthetics
+```{r}
+transform_ex <- transform_ex %>% mutate(.median = median(eggs))
+
+autoplot(prices %>% filter(!is.na(eggs)), level = 80)
+transform_ex %>% autoplot(prices %>% filter(!is.na(eggs)), level = 80)
+transform_ex %>% 
+  autoplot(prices %>% filter(!is.na(eggs)), level = 80) +
+  geom_line(aes(y = .median), data = transform_ex, linetype = 2, color = "blue")
+
+```
+# Forecasting with Decomposition
+
+To forecast a decoposed series we forecast the seasonal and seasonally adjused (Trend + Remainder) seperately
+
+## Example: US Retail Employment
+
+```{r}
+us_retail_employment <- us_employment |>
+  filter(year(Month) >= 1990, Title == "Retail Trade")
+
+# produce seasonally adjusted data using decomposition
+
+rEmp_dcmp <- us_retail_employment %>%
+  model(STL(Employed ~ trend(window = 7), robust = TRUE)) %>%
+  components() %>%
+  select(-.model)
+
+```
+```{r}
+# NAIVE forecast of seasonally adjusted data
+
+rEmp_dcmp %>%
+  model(NAIVE(season_adjust)) %>%
+  forecast() %>%
+  autoplot(rEmp_dcmp) +
+  labs(title = "Naive forecast of Seasonally Adjusted Trend + Noise")
+us_retail_employment %>% autoplot(Employed)
+```
+These steps can be combined using the decomposition_model() function. In this example we use a seasonal Naive forecast of the sesonal component
+The seasonal component is forecasted by default using Seasonal Naive, and could be specified as a third argument.
+```{r}
+fit_seasonal_decomp <- us_retail_employment %>%
+  model(stlf = decomposition_model(
+    STL(Employed ~ trend(window = 7), robust = TRUE),
+    NAIVE(season_adjust)
+  ))
+
+fit_seasonal_decomp %>%
+  forecast() %>% 
+  autoplot(us_retail_employment)
+  
+```
+
+# Evaluating Point Forecast Accuracy
+
+## Functions to subset a time series
+
+I'm familiar with most of the examples, but the code block below extracts the last 20 observations and is novel to me
+
+```{r}
+aus_production %>% slice(n()-19:0)
+```
+## Common Error Measures
+
+* Forecast Errors
+* Scale Dependent Errors
+  + Mean Absolute Error
+  + Root Mean Squared Error
+* Percentage Erors
+  + Mean Absolute Percentage Error
+* Scaled Errors
+
+## Examples: Benchmark Forecasts, Accuracy and Forecast Errors
+
+### Quarterly Beer Production
+
+Recent production will be used to benchmark the training data
+
+```{r}
+recent_production <- aus_production %>%
+  filter(year(Quarter) >= 1992)
+
+# remember to use index_by with tsibbles
+recent_production %>% mutate(Year = year(Quarter)) %>% index_by(Year) %>% summarise(total_y = n()) %>% slice(n()-9:0)
+```
+
+```{r}
+# so test data is essentially 2008 forwards
+beer_train <- recent_production %>%
+   filter(year(Quarter) <= 2007)
+```
+
+Modeling: Fit / Model Definition
+
+```{r}
+
+beer_fit <- beer_train %>% model(
+  Mean = MEAN(Beer),
+  Naive = NAIVE(Beer),
+  Sea_Naive = SNAIVE(Beer),
+  Drift = RW(Beer ~ drift())
+)
+
+```
+
+Modeling: Forecast
+
+```{r}
+beer_fcast <- beer_fit %>%
+  forecast(h = 10)
+```
+
+Results: Plots and Narrative
+
+```{r}
+autoplot(beer_fcast, level = NULL)
+```
+Piping in a forecast to a full historic series will set up a coparrison
+
+```{r}
+beer_fc %>% 
+  autoplot(
+    aus_production %>% filter(year(Quarter) >= 1992),
+    level = NULL
+  ) +
+  guides(color = guide_legend(title = "Forecast"))
+```
+```{r}
+fabletools::accuracy(beer_fcast, recent_production)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+

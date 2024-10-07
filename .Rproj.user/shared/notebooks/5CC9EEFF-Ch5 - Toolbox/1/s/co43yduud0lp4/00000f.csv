@@ -1,0 +1,3 @@
+"0","transform_ex <- transform_ex %>% mutate(.median = median(eggs))"
+"0",""
+"0","autoplot(prices %>% filter(!is.na(eggs)), level = 80)"

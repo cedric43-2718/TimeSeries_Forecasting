@@ -1,0 +1,1 @@
+"0","google_2015 %>% model(NAIVE(Close)) %>% gg_tsresiduals()"

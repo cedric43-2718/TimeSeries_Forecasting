@@ -1,0 +1,2 @@
+"0","google_fit_drift <- google_2015 %>% model(RW(Close ~ drift()))"
+"0","google_fit_drift %>% tidy()"

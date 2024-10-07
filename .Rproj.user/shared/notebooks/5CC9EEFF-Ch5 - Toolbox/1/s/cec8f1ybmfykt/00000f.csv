@@ -1,0 +1,8 @@
+"0",""
+"0","beer_fit <- beer_train %>% model("
+"0","  Mean = MEAN(Beer),"
+"0","  Naive = NAIVE(Beer),"
+"0","  Sea_Naive = SNAIVE(Beer),"
+"0","  Drift = RW(Beer ~ drift())"
+"0",")"
+"0",""

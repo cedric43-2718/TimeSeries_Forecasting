@@ -1,0 +1,3 @@
+"0","# so test data is essentially 2008 forwards"
+"0","beer_train <- recent_production %>%"
+"0","   filter(year(Quarter) <= 2007)"
