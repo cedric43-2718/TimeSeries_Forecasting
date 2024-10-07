@@ -2,5 +2,5 @@
 # git add README.md
 # git commit -m "first commit"
 # git branch -M main
-# git remote add origin https://github.com/cedric43-2718/exp.git
+# git remote add origin https://github.com/cedric43-2718/RForecasting_Tools.git
 # git push -u origin main
